@@ -1,0 +1,9 @@
+pandas
+networkx
+numpy
+matplotlib
+seaborn
+torch
+torch-geometric
+scipy
+plotly
