@@ -1,8 +1,8 @@
 ## CSC402 - Lab 1
-Don Nguyen
-knguy42@u.rochester.edu
 
-![Network graph of emails exchanged during the whole time period](images/network_graph.png)
+Don Nguyen
+
+knguy42@u.rochester.edu![Network graph of emails exchanged during the whole time period](images/network_graph.png)
 ## Part 1: Network Analysis
 1. Number of directed edges (arcs): 3007
 
@@ -43,9 +43,7 @@ Top 10 individuals as most central by degree over weeks:
 ![Top centrality scores each week (dual axis)](images/most_central_employee_each_week_dual_axis.png)
 While Stephanie Panus was only most central employee by degree in a week once, over the entire graph, she was the most central.10. Graph-level statistics over time (identify Enron Online launch, Cooper CEO, etc.)
 ![Graph-level statistics over time](images/graph_level_statistics_over_time.png)
-
-
-## Q10: Change-point detection and interpretation (Summary)
+10. Change-point detection and interpretation (Summary)
 - **First change point (around late 1999 / early 2000):** The series move from a low, relatively flat level to a clear **growth** phase: nodes and edges begin to rise more steadily, and week-over-week changes become larger and more variable. This aligns with the **launch of Enron Online**, which would be expected to increase trading-related communication and thus email activity.
 
 - **Middle change points (mid-2000, mid-2001):** These fall during the sustained growth period and mark further shifts in the level (or pattern) of activity—e.g. changes in growth rate or in who is active in the network.
@@ -55,6 +53,7 @@ While Stephanie Panus was only most central employee by degree in a week once, o
 - **Fifth change point (early 2002, in the decline):** The level of edges (and related statistics) drops sharply; the rate-of-change plots show large negative week-over-week changes. This aligns with **Stephen Cooper’s ascent to CEO** and the post-bankruptcy restructuring (Enron filed for bankruptcy in December 2001; Cooper became CEO in early 2002), when many employees left and email traffic collapsed.
 
 **Interpretation in one sentence:** We used graph-level statistics over time and a simple, logic-based change-point rule on the number of edges to identify five weeks where the network’s activity level changed the most; the first and last of these align with the launch of Enron Online and with Cooper’s ascent to CEO and the ensuing collapse of the email network.
+
 11. Compute and print the graph Laplacian matrix L for Karate club (L = D - A):
 tensor([[16., -1., -1.,  ..., -1.,  0.,  0.],
         [-1.,  9., -1.,  ...,  0.,  0.,  0.],
