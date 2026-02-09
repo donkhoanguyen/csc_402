@@ -1,3 +1,7 @@
+## CSC402 - Lab 1
+Don Nguyen
+knguy42@u.rochester.edu
+
 ![Network graph of emails exchanged during the whole time period](images/network_graph.png)
 ## Part 1: Network Analysis
 1. Number of directed edges (arcs): 3007
