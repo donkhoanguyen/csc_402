@@ -59,11 +59,15 @@ tensor([[16., -1., -1.,  ..., -1.,  0.,  0.],
         [-1.,  0.,  0.,  ...,  6., -1., -1.],
         [ 0.,  0., -1.,  ..., -1., 12., -1.],
         [ 0.,  0.,  0.,  ..., -1., -1., 17.]])
+
 12. Zero eigenvalue and ones vector
    L @ ones ≈ 0: True
    First eigenvector proportional to ones: True
+
 13. Symmetric and positive semidefinite
    is L symmetric: True
    Min eigenvalue ≥ 0: True
+
 14. Signed incidence matrix B_tilde: L = B_tilde @ B_tilde.T
    L = B_tilde @ B_tilde.T: True
+
