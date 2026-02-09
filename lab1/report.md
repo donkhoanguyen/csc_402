@@ -17,13 +17,14 @@
 7. Employees who contacted ≥30 employees: 24
 
 ![Q7: Nodes that contacted ≥30 employees (red)](images/q7_contacted_30.png)
+8. In-degree and out-degree histograms
 ![Q8: Degree histograms](images/q8_degree_histograms.png)
 ## Part 2: Changes in the Network Graph
 9. Centrality over time: two measures (e.g. degree centrality, betweenness)
 **Who was most central?**
-- **Entire graph:** Most central by degree: **Stephanie Panus        Employee**. Most central by betweenness: **Chris Germany       Employee**.
-- **Per week:**
-Frequency of individuals as most central by degree over weeks:
+**Entire graph:** Most central by degree: **Stephanie Panus        Employee**. Most central by betweenness: **Chris Germany       Employee**.
+**Per week:**
+Top 10 individuals as most central by degree over weeks:
 - Mark Taylor            Employee: 44 weeks
 - Tana Jones             N/A: 30 weeks
 - Louise Kitchen      President          Enron Online: 11 weeks
@@ -34,33 +35,9 @@ Frequency of individuals as most central by degree over weeks:
 - Michael Grigsby         Manager: 8 weeks
 - Chris Germany       Employee: 6 weeks
 - David Delainey         CEO                Enron North America and Enron Enery Services: 5 weeks
-- Shelley Corman         Vice President     Regulatory Affairs: 4 weeks
-- Jeff Dasovich          Employee           Government Relation Executive: 4 weeks
-- Elizabeth Sager        Employee: 3 weeks
-- Richard Sanders     Vice President    Enron WholeSale Services: 3 weeks
-- Scott Neal              Vice President: 3 weeks
-- Sally Beck          Employee           Chief Operating Officer: 2 weeks
-- Steven Kean            Vice President     Vice President & Chief of Staff: 2 weeks
-- Richard Shapiro        Vice President     Regulatory Affairs: 2 weeks
-- Kam Keiser          Employee: 2 weeks
-- Kimberly Watson        N/A: 2 weeks
-- Michelle Lokay         Employee           Administrative Asisstant: 2 weeks
-- Susan Bailey           N/A: 2 weeks
-- Chris Dorland       Manager: 1 weeks
-- Matthew Lenhart        Employee: 1 weeks
-- Vince Kaminski      Manager            Risk Management Head: 1 weeks
-- Jeffrey Shankman       President          Enron Global Mkts: 1 weeks
-- Kim Ward               N/A: 1 weeks
-- Jeffery Skilling    CEO: 1 weeks
-- Kenneth Lay         CEO: 1 weeks
-- Phillip Love        N/A: 1 weeks
-- Kevin Presto            Vice President: 1 weeks
-- Lindy Donoho           Employee: 1 weeks
-- Susan Scott            N/A: 1 weeks
-- Stephanie Panus        Employee: 1 weeks
 
 ![Top centrality scores each week (dual axis)](images/most_central_employee_each_week_dual_axis.png)
-10. Graph-level statistics over time (identify Enron Online launch, Cooper CEO, etc.)
+While Stephanie Panus was only most central employee by degree in a week once, over the entire graph, she was the most central.10. Graph-level statistics over time (identify Enron Online launch, Cooper CEO, etc.)
 ![Graph-level statistics over time](images/graph_level_statistics_over_time.png)
 
 
