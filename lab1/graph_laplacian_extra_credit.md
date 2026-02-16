@@ -1,5 +1,7 @@
 # Optional Extra Credit: Properties of the Graph Laplacian
 
+> **Formulas not rendering?** Open `graph_laplacian_extra_credit.html` in a browser to see the math rendered.
+
 **Setup:** Consider an undirected and unweighted network graph $G(V,E)$, with order $N_v := |V|$, size $N_e := |E|$, and adjacency matrix $\mathbf{A}$. Let $\mathbf{D} = \text{diag}(d_1, \ldots, d_{N_v})$ be the degree matrix and $\mathbf{L} := \mathbf{D} - \mathbf{A}$ the Laplacian of $G$.
 
 ---
