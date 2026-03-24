@@ -1,0 +1,247 @@
+% ECE 442 / CSC 402 Project Proposal
+% Don Nguyen
+
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{enumitem}
+
+\title{
+Agentic Relational Reasoning with Knowledge Graph Memory \\
+for Enterprise Databases
+}
+
+\author{
+  Don Nguyen \\
+  CSC 402 / ECE 442 -- Network Science Analytics \\
+  University of Rochester \\
+  \texttt{knguy42@u.rochester.edu}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This proposal outlines a research-style project in network science analytics that builds a knowledge graph over enterprise databases to act as a context and memory layer for data querying agents.
+The graph is constructed as a heterogeneous network over schemas, documentation, and other metadata from the Spider~2.0 and BIRD benchmark suites.
+Using this graph as a structured memory, we aim to improve multi-hop SQL reasoning and complex query answering compared to strong large language model (LLM) baselines that do not leverage graph-based context.
+\end{abstract}
+
+\section{Problem Description}
+
+Large language models (LLMs) have demonstrated impressive performance on text-to-SQL and conversational querying benchmarks, yet they still struggle on complex, multi-hop reasoning over realistic enterprise databases.
+Benchmarks such as Spider~2.0 and BIRD highlight two key difficulties:
+(1) very large, relationally rich schemas that are hard to load directly into a context window, and
+(2) multi-turn interactions where the agent must remember prior steps and intermediate results.
+
+Most current systems treat schema and documentation as flat text, using vector-based retrieval or heuristic pruning.
+This approach largely ignores the intrinsic network structure of the database and its surrounding knowledge: tables, columns, foreign keys, business entities, and documentation snippets form a natural graph.
+Without explicitly modeling this graph, agents may retrieve irrelevant tables, miss key relational paths, or fail to reuse past reasoning.
+
+\textbf{Goal.}
+The goal of this project is to build and analyze a \emph{knowledge graph memory layer} for enterprise-style databases, constructed from the schemas and documentation of Spider~2.0 and BIRD.
+This graph will serve as a heterogeneous information network that a text-to-SQL agent can query to:
+(i) prune schemas to relevant neighborhoods,
+(ii) navigate multi-hop relational paths,
+and (iii) maintain structured memory across interactions.
+We will evaluate whether this network-science-based memory layer improves performance on BIRD and Spider~2.0 metrics compared to strong LLM baselines that operate without such a graph.
+
+\section{Planned Approach}
+
+\subsection{Network Construction}
+
+We will model each benchmark database as a heterogeneous graph:
+nodes will include tables, columns, higher-level entities, and documentation snippets;
+edges will encode foreign-key relationships, table--column membership, semantic similarity links, and possibly \emph{usage} edges derived from query logs (when available).
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nodes:}
+  \begin{itemize}
+    \item Table nodes (one per table).
+    \item Column nodes (one per column).
+    \item Documentation nodes for relevant text snippets (e.g., schema descriptions, dataset documentation, FAQs).
+  \end{itemize}
+  \item \textbf{Edges:}
+  \begin{itemize}
+    \item Foreign key edges between columns/tables.
+    \item Table--column membership edges.
+    \item Semantic similarity edges (e.g., between columns and docs) using embedding-based similarity.
+  \end{itemize}
+\end{itemize}
+
+The resulting network is a context graph or heterogeneous information network over which we can perform neighborhood queries, path searches, and other network-science operations.
+We expect to start with a relatively small subset of Spider~2.0 and BIRD databases and scale up as compute and data access allow.
+
+\subsection{Agent Architecture}
+
+We plan to design an agentic text-to-SQL system where the LLM interacts explicitly with the knowledge graph:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Schema and context retrieval.}
+  Given a natural-language question (or multi-turn dialog), the agent first formulates a graph query (implicitly via an LLM prompt) to identify a subgraph neighborhood that is likely relevant to the question.
+  This neighborhood includes a small set of tables, columns, and associated documentation.
+  Graph queries will be implemented via \texttt{Neo4j} queries and/or graph search operations.
+  \item \textbf{Reasoning and SQL generation.}
+  The retrieved neighborhood is serialized into a compact textual or structured representation and provided to the LLM (e.g., via Nemotron NIM APIs).
+  The LLM then reasons about the question, the schema neighborhood, and prior conversation turns to propose candidate SQL queries.
+  \item \textbf{Execution feedback and memory update.}
+  Candidate queries are executed (where possible) against the benchmark database.
+  Results and execution feedback are used by the agent to refine its reasoning and can be written back to the graph as additional nodes/edges (e.g., ``successful path'' edges or ``frequently joined tables'').
+  \item \textbf{Orchestration.}
+  We plan to use LangGraph as a high-level orchestration framework, defining nodes for graph retrieval, LLM reasoning, SQL execution, and self-correction loops.
+\end{enumerate}
+
+\subsection{Baselines and Comparisons}
+
+We will compare against baseline systems that \emph{do not} leverage a graph-structured memory:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Plain LLM:} A strong LLM (e.g., a Nemotron model accessed via NIM) prompted with the full or heuristically-pruned schema in text form, without graph reasoning.
+  \item \textbf{Text-only RAG:} A vector-based retrieval system over schema and documentation text, where retrieved text chunks are given to the LLM, but no explicit graph or relational structure is exposed.
+  \item \textbf{Existing benchmark baselines:} We will also use the official baselines and leaderboards for BIRD and Spider~2.0 when possible, as external reference points.
+\end{itemize}
+
+The core scientific question is whether modeling the schema and documentation as an explicit network yields measurable gains in complex, multi-hop reasoning performance over strong LLMs without such a network.
+
+\section{Initial References}
+
+We will build on the following initial set of references~\cite{yu2024spider2,li2024bird,sun2013survey,ji2022survey,schlichtkrull2018rgcn}:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Benchmarks.}
+  \begin{itemize}
+    \item Spider~2.0 benchmark paper and documentation (complex enterprise-scale text-to-SQL).
+    \item BIRD benchmark for multi-turn, conversational, and agentic SQL reasoning.
+  \end{itemize}
+  \item \textbf{Network science and graph analytics.}
+  \begin{itemize}
+    \item Standard references on heterogeneous information networks, graph representation learning, and network analytics (e.g., textbooks and survey papers from the course resources).
+  \end{itemize}
+  \item \textbf{Graph-based and agentic SQL systems.}
+  \begin{itemize}
+    \item Recent work on graph-based schema representations and relational foundation models (e.g., systems that treat databases as graphs for retrieval and reasoning).
+    \item Papers on agentic workflows for text-to-SQL, tool-augmented LLMs, and memory-augmented agents.
+  \end{itemize}
+\end{itemize}
+
+As part of the project, we will expand this list into a more thorough literature review, covering both classical network science methods and modern graph neural networks / relational models applied to database and knowledge graph reasoning.
+
+\section{Software, Tools, and Infrastructure}
+
+We plan to use the following software stack:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{LLM APIs:} NVIDIA Nemotron NIM for primary model inference, with potential use of additional LLM APIs for comparison.
+  \item \textbf{Graph layer:} Neo4j as the primary graph database to store and query the heterogeneous knowledge graph.
+  \item \textbf{Orchestration:} LangGraph for defining the agent workflow (graph retrieval, LLM calls, SQL execution, self-correction).
+  \item \textbf{General programming environment:} Python-based stack for data preprocessing, graph construction, and evaluation scripts.
+\end{itemize}
+
+Because full Spider~2.0 evaluation requires access to cloud data warehouses such as Snowflake or Databricks, we will start with subsets or simplified setups and escalate to more realistic deployments only if resources permit.
+
+\section{Datasets and Networks}
+
+The primary datasets and networks are:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{BIRD.}
+  We will use the BIRD benchmark for multi-turn, conversational SQL reasoning.
+  From BIRD, we will extract database schemas, foreign key relationships, and associated documentation to construct heterogeneous networks.
+  BIRD will serve as the \emph{primary} evaluation benchmark if Spider~2.0 access is limited.
+  \item \textbf{Spider~2.0.}
+  We will use Spider~2.0, focusing on the complex enterprise schemas that require cloud data warehouses.
+  Here the emphasis is on modeling large, relationally rich networks and testing how well the graph memory scales.
+  Full evaluation on Spider~2.0 is considered a stretch goal, dependent on access to the necessary cloud infrastructure.
+\end{itemize}
+
+In all cases, the networks we analyze are derived from the schemas and documentation: they are not arbitrary graphs, but structured representations of real-world relational databases and their knowledge context.
+
+\section{Expected Outcomes and Success Criteria}
+
+\subsection{Minimum Viable Success}
+
+The minimum viable outcome is an agentic text-to-SQL system that:
+
+\begin{itemize}[leftmargin=*]
+  \item Implements a knowledge graph memory over at least a subset of BIRD and Spider~2.0 schemas and documentation.
+  \item Demonstrates measurable improvements in benchmark scores on BIRD (e.g., execution accuracy or success rate) compared to:
+  (i) a plain LLM baseline and
+  (ii) a text-only RAG baseline.
+\end{itemize}
+
+\subsection{Quantitative Criteria}
+
+We will primarily use the official metrics defined by BIRD and Spider~2.0, such as:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Execution accuracy:} whether the generated SQL returns the correct result.
+  \item \textbf{Exact-match or partial-match metrics:} string-level or structure-level comparison to reference SQL when available.
+  \item \textbf{Multi-turn success rate:} for conversational tasks, the fraction of dialogues in which the agent successfully answers all required questions.
+\end{itemize}
+
+We will also perform ablation studies comparing:
+
+\begin{enumerate}[leftmargin=*]
+  \item No graph (plain LLM).
+  \item Text-only retrieval over schema/docs.
+  \item Full knowledge graph memory (proposed method).
+\end{enumerate}
+
+\section{Additional Notes, Risks, and Stretch Goals}
+
+\subsection{Risks and Constraints}
+
+A key practical risk is the infrastructure required to fully evaluate on Spider~2.0, which relies on cloud data warehouses such as Snowflake or Databricks.
+If access to these resources is limited, we may only be able to test smaller subsets of Spider~2.0 or use local emulations.
+
+Another constraint is time and compute budget for running large numbers of LLM calls and SQL executions, especially for multi-turn conversational evaluation.
+We will mitigate this by starting with small-scale experiments and carefully budgeting benchmark runs.
+
+\subsection{Stretch Goals}
+
+If resources and time permit, we will pursue the following stretch goals:
+
+\begin{itemize}[leftmargin=*]
+  \item Full-scale evaluation on Spider~2.0 with realistic cloud warehouse setups.
+  \item More advanced graph-learning methods over the knowledge graph (e.g., graph neural networks for better node/edge embeddings).
+  \item Incorporating dynamic memory updates into the graph based on agent interactions (e.g., recording successful query patterns or typical join paths).
+\end{itemize}
+
+Even if these stretch goals are not fully realized, the project will deliver a concrete network-based agent architecture, an implemented knowledge graph memory layer, and empirical evidence about the value of graph-structured context for enterprise text-to-SQL reasoning.
+
+\begin{thebibliography}{9}
+
+\bibitem{yu2024spider2}
+Tao Yu, et al.
+\newblock Spider 2.0: A multi-database benchmark for realistic, large-scale text-to-SQL evaluation.
+\newblock \emph{ArXiv preprint arXiv:2407.XXXX}, 2024.
+
+\bibitem{li2024bird}
+Haoyang Li, et al.
+\newblock BIRD: A benchmark for intelligent reasoning over databases.
+\newblock \emph{ArXiv preprint arXiv:2401.XXXX}, 2024.
+
+\bibitem{sun2013survey}
+Yizhou Sun and Jiawei Han.
+\newblock Mining heterogeneous information networks: a structural analysis approach.
+\newblock \emph{ACM SIGKDD Explorations Newsletter}, 14(2):20--28, 2013.
+
+\bibitem{ji2022survey}
+Shuai Ji, et al.
+\newblock A survey on knowledge graphs: representation, acquisition, and applications.
+\newblock \emph{IEEE Transactions on Neural Networks and Learning Systems}, 33(2):494--514, 2022.
+
+\bibitem{schlichtkrull2018rgcn}
+Michael Schlichtkrull, et al.
+\newblock Modeling relational data with graph convolutional networks.
+\newblock In \emph{Proceedings of the European Semantic Web Conference (ESWC)}, 2018.
+
+\end{thebibliography}
+
+\end{document}
+

@@ -1,0 +1,19 @@
+<style type="text/css">
+html{margin:0;padding:0}
+body{font: 76% sans-serif;text-align:center;color: #555555; width: 700px; margin: 0 auto 0 auto}
+p{margin:0 10px 10px}
+a{TEXT-DECORATION: none;color: #00467f;padding:0px}     
+div#header h1{height:80px;line-height:80px;margin:0;
+  padding-left:10px; padding-right:10px; background: #00467f; color: #FFF}
+div#container{text-align:justify}
+div#content p{line-height:1.4}
+div#menu{background:#ffdd00}
+div#footer{background: #00467f;color: #FFF}
+div#footer p{padding:5px 10px}
+
+div#container{margin:0 auto}
+div#wrapper{float:left;width:100%}
+div#content{margin-left: 150px; padding-right: 10px; padding-top: 1em ; padding-bottom: 1em; min-height: 400px}
+div#menu{float:left;width:150px;margin-left:-700px; padding-top:1em; min-height: 400px ; padding-bottom: 1em}
+div#footer{clear:left;width:100%}
+</style>

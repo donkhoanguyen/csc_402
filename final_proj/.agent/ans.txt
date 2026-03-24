@@ -1,0 +1,67 @@
+• Team info
+    • Are you working alone or in a pair? If
+      pair, list names.
+
+      Im working alone
+
+  • Precise project framing as “network science”
+    • One–two sentences: how you want to frame
+      this as a network science analytics project
+       (e.g., “context graph of schemas + docs as
+       a heterogeneous network for SQL
+      reasoning”).
+
+      I wnat to built a knowledge graph for enteprises databases, 
+      as knowledge/context + memory layer for data querying agents
+
+
+  • Topic/scope choices
+    • Which benchmark(s) you want to commit to
+      (Spider 2.0, BIRD, both?).
+
+      we will use variations of both spider 2.o and bird, depending on how much hardware / warehouse
+      we can access later
+
+    • What is your minimum viable success (e.g.,
+      improve exact-match accuracy over baseline
+      by X%, or handle Y types of queries).
+
+min viable success: make an agent that improves on BIRD and SPIDER 2.0 compared to a few popular base models
+like gemini, sonnet, or nvidia nemotron
+
+  • Datasets / networks
+    • Confirm which datasets you plan to treat as
+       networks (e.g., “schema + documentation
+      graph from Spider databases” plus any
+      external graphs).
+
+      yes schema and doc from both BIRD AND SPIDERS
+  • Methods and tools
+    • Which models/APIs you expect to use
+      (Nemotron NIM, any others).
+
+      nemotron nim and other LLM apis
+    • Which graph stack: e.g., NetworkX vs Neo4j,
+       and any other key libraries.
+
+    Neo4j as intended graph layer. Also use Langgraph as orchestration alyers
+  • Evaluation plan
+    • Rough idea of the metrics (execution
+      accuracy, EM on SQL, ablation vs no-graph).
+
+      use whatever score BIRD and SPIDER 2.0 makes
+    • Any baselines you definitely want (plain
+      LLM, text-only RAG, etc.).
+
+      baselike: current models performance on thise benchmarks
+  • Risks / constraints
+    • Any time/compute constraints or access
+      issues you already know about.
+
+      hardware: the amount of storage needed for both these benchmarks are a lil crazy
+      SPIDER 2.0 needs cloud warehouse, either snowflake or databricks
+      however we use: BIRD for reasoning benchmark and spider 2.0 for memory, so I want both
+    • Any parts you’re unsure are feasible and
+      might need to be marked as “stretch goals”.
+
+      worst case is we wont get to test on spider 2.0 cause we dont have the money
