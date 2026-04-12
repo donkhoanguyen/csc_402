@@ -1,0 +1,16 @@
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{listings}
+
+% Keep figures inside the printable page area.
+\setkeys{Gin}{width=\linewidth,height=0.9\textheight,keepaspectratio}
+
+% Allow long code lines to wrap instead of overflowing.
+\lstset{
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible
+}
+
+% Give TeX more flexibility before reporting overfull lines.
+\AtBeginDocument{\setlength{\emergencystretch}{3em}}

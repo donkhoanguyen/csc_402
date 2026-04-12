@@ -1,0 +1,46 @@
+# Ignore all .env files anywhere in the repository
+.env
+.env.*
+**/.env
+**/.env.*
+# Private/public key files
+*.pem
+*.key
+*.der
+*.p12
+*.pfx
+*.cer
+*.crt
+*.asc
+*.gpg
+*.jks
+*.keystore
+*.p7b
+*.pub
+
+# SSH and authentication keys
+id_rsa
+id_rsa.*
+id_dsa
+id_dsa.*
+id_ecdsa
+id_ecdsa.*
+id_ed25519
+id_ed25519.*
+
+# AWS and cloud provider credentials
+*.aws/credentials
+.aws/credentials
+*.azure/credentials
+*.gcloud/credentials
+*.google/credentials
+*.oci/credentials
+
+# Apple/certificate keychain files
+*.mobileprovision
+
+# Other secret key patterns
+*.srl
+*.csr
+*.jwk
+*.jwt

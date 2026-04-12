@@ -1,0 +1,11 @@
+Connecting to Snowflake...
+Microsoft Authenticator 6-digit code: Traceback (most recent call last):
+  File "/Users/khoadangnguyen/Desktop/csc_402/final_proj/shared/snowflake_bootstrap.py", line 288, in <module>
+    main()
+  File "/Users/khoadangnguyen/Desktop/csc_402/final_proj/shared/snowflake_bootstrap.py", line 250, in main
+    sf_conn = get_snowflake_conn()
+              ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/khoadangnguyen/Desktop/csc_402/final_proj/shared/snowflake_bootstrap.py", line 45, in get_snowflake_conn
+    passcode = input("Microsoft Authenticator 6-digit code: ").strip()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 5] Input/output error

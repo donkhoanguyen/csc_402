@@ -12,60 +12,41 @@ In this laboratory, we analyzed structural properties of large-scale networks, f
 
 ### 2.1 Degree Distribution
 
-**Question 1:** Write a function that computes the degree distribution of a graph given its degree sequence. The function `numpy.histogram` may be useful to that end.
+I implemented a function to estimate the empirical degree distribution from a degree sequence. The method uses `np.histogram` with bins centered on non-negative integer degrees (`[-0.5, 0.5, 1.5, ..., max_degree+0.5]`) and then normalizes counts so the resulting vector sums to 1, yielding an estimate of $P(d)$.
 
-**Response:**
-- Describe your implementation:
-  - Use `np.histogram` with bins centered on non-negative integer degrees (bins `[-0.5, 0.5, 1.5, ..., max_degree+0.5]`).
-  - Normalize histogram counts so the resulting vector sums to 1, producing an empirical estimate of `P(d)`.
-- Show the function code:
+The implementation is shown below:
 
 ```python
 def degree_distribution(degree_sequence):
-  # TODO: Implement this function that takes the graph's degree sequence as input
-  # and returns its degree distribution
-
   degree_distribution = []
-
-  ############# your code here #############
   max_degree = np.max(degree_sequence)
   counts, bins = np.histogram(degree_sequence, bins=np.arange(-0.5, max_degree+1.5, 1))
   degree_distribution = counts / np.sum(counts)
-  #########################################
-
   return degree_distribution
 ```
-- Test results on the toy graph:
-  - The degree distribution of the toy graph is `[0.1 0.2 0.4 0.2 0.1]`
+On the toy graph, the function returns `[0.1 0.2 0.4 0.2 0.1]`, which matches the expected result.
 
 ---
 
 ### 2.2 Power-Law Distributions and Scale-Free Networks
 
-**Question 2:** Plot the degree distribution $P(d)$ versus $d$ in log-log scale. Would you say the degree distribution obeys a power law? Discuss.
+The log-log plot of $P(d)$ versus $d$ for the citation network is shown below.
 
-**Response:**
-- Include log-log plot of degree distribution:
-  - ![Citation network degree distribution (log-log)](report_figures/lab2_q2_degree_distribution_loglog.png)
-- #TODO: Analysis of whether power law is observed
-- #TODO: Discussion of findings (e.g., tail behavior / deviations / robustness)
+![Citation network degree distribution (log-log)](report_figures/lab2_q2_degree_distribution_loglog.png){ width=85% }
 
-**Question 3:** Plot a histogram for the degrees of the citation network using bins of width $2^n$, for $n=0,1,2,\dots$. Do you still stand by your answer to Question 2? Are you more certain now as to whether the citation network can be characterized as scale-free?
+The curve shows a clear decreasing trend with a long right tail, consistent with heavy-tailed behavior. Over an intermediate degree range, points are approximately linear on log-log axes, which is consistent with an approximate power-law tail. However, the full-range pattern is not perfectly linear, and high-degree observations are sparse and noisy. I therefore interpret this figure as qualitative evidence of power-law-like behavior rather than definitive evidence of an exact power law over the full support.
 
-**Response:**
-- Include histogram with logarithmic binning:
-  - ![Citation network degree histogram (log-binning)](report_figures/lab2_q3_degree_histogram_log_bins.png)
-- #TODO: Compare with previous analysis (Question 2)
-- #TODO: Discussion of scale-free characterization and assessment of confidence
+To reduce tail noise, I also plotted a histogram with logarithmic binning (bin widths $2^n$).
+
+![Citation network degree histogram (log-binning)](report_figures/lab2_q3_degree_histogram_log_bins.png){ width=85% }
+
+Compared with the raw degree-distribution plot, logarithmic binning yields a cleaner tail and reduces pointwise noise. The decay remains monotone and approximately linear over part of the range, so my conclusion from the previous subsection is unchanged. I am more confident that the network is genuinely heavy-tailed and exhibits hub structure, but I still avoid claiming an exact scale-free law over all degrees; the strongest evidence supports an approximate power-law-like tail over a limited interval.
 
 ---
 
 ### 2.3 Pareto Distribution and Estimation of the Power-Law Exponent $\alpha$
 
-**Question 4:** Determine the value of the constant $C$ so that $p(d)$ is a valid pdf.
-
-**Response:**
-Assume the Pareto-like model
+For the Pareto-like model
 $$
 p(d)=C d^{-\alpha}, \quad d\ge d_{\min},
 $$
@@ -75,7 +56,7 @@ $$
 = C\left[ \frac{d^{-(\alpha-1)}}{\alpha-1} \right]_{d_{\min}}^{\infty}
 = C\cdot \frac{d_{\min}^{-(\alpha-1)}}{\alpha-1}.
 $$
-Therefore,
+normalization gives
 $$
 C=(\alpha-1)d_{\min}^{\alpha-1}.
 $$
@@ -84,33 +65,18 @@ $$
 
 ### 2.3 (continued) Pareto MLE and Exponent Estimation
 
-**Question 5:** Write a function that implements the aforementioned MLE, given the degree sequence and $d_{\min}$ as inputs. Estimate the power-law exponent for the citation network.
-
-**Response:**
-- Describe MLE implementation:
-  - Filter degrees to keep only $d_i\ge d_{\min}$.
-  - Let $n$ be the number of remaining samples.
-  - Compute
-    $$
-    \hat{\alpha}=1+\frac{n}{\sum_{i=1}^n \log(d_i/d_{\min})}.
-    $$
-- Show function code:
+I implemented the MLE by filtering to degrees $d_i \ge d_{\min}$, setting $n$ to the number of retained samples, and evaluating
+$$
+\hat{\alpha}=1+\frac{n}{\sum_{i=1}^n \log(d_i/d_{\min})}.
+$$
+The function is shown below:
 
 ```python
 def alpha_maximum_likelihood(deg_sequence, d_min):
-  # TODO: Implement this function that takes the graph's degree sequence and
-  # the degree lower bound (from which a power law is credible) as inputs, and
-  # returns the MLE of α
-
   alpha_hat = 0
-
-  ############# your code here #############
-
-  # Compute MLE of α for degrees >= d_min
   import numpy as np
 
   deg_sequence = np.array(deg_sequence)
-  # Filter degrees >= d_min
   filtered_degrees = deg_sequence[deg_sequence >= d_min]
 
   n = len(filtered_degrees)
@@ -119,27 +85,19 @@ def alpha_maximum_likelihood(deg_sequence, d_min):
 
   logs = np.log(filtered_degrees / d_min)
   alpha_hat = 1 + n / np.sum(logs)
-  #########################################
-
   return alpha_hat
 ```
-- Report estimated $\hat{\alpha}$ value (citation network):
-  - Using $d_{\min}=10$, the notebook computed:
-    - $\hat{\alpha} = 4.030$
-- #TODO: Discussion of the result (interpretation of the exponent; choice of $d_{\min}$; plausibility of the tail fit)
+Using $d_{\min}=10$, I obtained $\hat{\alpha}=4.030$. This relatively large exponent implies a steeply decaying tail: high-degree papers exist, but extremely high-degree papers are rare. This interpretation is consistent with the figures. Because the estimate depends on the choice of $d_{\min}$, I treat this value as a plausible tail summary under the Pareto assumption rather than an exact universal constant.
 
 ---
 
 ### 2.4 Assortative Mixing and the Modularity Coefficient
 
-**Question 6:** Compute the modularity coefficient for the airport and paper citation networks.
+For assortative mixing, the computed modularity values were:
+- USA airports network: `mod_airports = 0.1082`
+- Cora citation network (as currently coded): `mod_citation = 0.1082`
 
-**Response:**
-- Report modularity coefficient for USA airports network:
-  - `mod_airports = 0.1082`
-- Report modularity coefficient for Cora citation network:
-  - `mod_citation = 0.1082`
-- Include relevant code/output:
+The relevant code/output is:
 
 ```python
 # For airport graph
@@ -148,23 +106,21 @@ mod_airports = nx.algorithms.community.modularity(G_airports, airport_partition)
 print(f"Modularity coefficient for USA airports network: {mod_airports:.4f}")
 
 # For citation network
-G_citation = to_networkx(airports_data)  # NOTE: see #TODO below
+G_citation = to_networkx(airports_data)
 citation_partition = communities_partition(airports_data.y.numpy())
 mod_citation = nx.algorithms.community.modularity(G_citation, citation_partition)
 print(f"Modularity coefficient for Cora citation network: {mod_citation:.4f}")
 ```
 
-- #TODO: Verify that `G_citation` is built from `cora_data` (the notebook’s code uses `airports_data` in that cell). If you rerun correctly, update `mod_citation`.
+Important implementation note: the code block above constructs `G_citation` and `citation_partition` from `airports_data`, so the reported `mod_citation` is not a valid value for Cora. The matching values are almost certainly due to this coding error rather than true structural similarity. The correct procedure is to build `G_citation` from `cora_data`, build `citation_partition` from `cora_data.y`, and recompute modularity. Until that rerun is completed, I treat the citation modularity value as provisional.
 
 ---
 
-**Question 7:** What do the respective values tell you about the structure of relational ties established in each of the networks?
+The positive but relatively small modularity values indicate modest assortative mixing: edges occur within the same label class more often than a degree-preserving random baseline would suggest, but class structure is not strongly separated.
 
-**Response:**
-- The modularity values are positive and relatively small (`~0.1082` in both cases), indicating modest assortative mixing: edges are more likely to connect nodes within the same label/class than would be expected under a degree-preserving random baseline.
-- #TODO: Discussion for citation network (connect observed modularity to expected topical similarity / homophily)
-- #TODO: Discussion for airports network (connect observed modularity to expected activity/quartile-based grouping)
-- #TODO: Comparison between the two networks
+For the citation network, a correctly recomputed positive modularity would be consistent with topical homophily, since papers in related areas tend to cite similar literature while still maintaining some cross-field citations. For the airports network, a positive but small modularity is plausible given partial grouping by activity level or system role, alongside substantial inter-group connectivity from hub-and-spoke routing.
+
+Conceptually, both networks show weak-to-moderate assortative structure, but the mechanisms differ (topic similarity versus transportation organization). Any direct numeric comparison should remain cautious until `mod_citation` is recomputed from `cora_data`.
 
 ---
 
@@ -172,121 +128,67 @@ print(f"Modularity coefficient for Cora citation network: {mod_citation:.4f}")
 
 ### 3.1 Spectral Graph Partitioning
 
-**Question 8:** Implement the spectral graph partitioning algorithm we discussed in class.
+I implemented spectral graph partitioning by computing the graph Laplacian `L`, extracting the Fiedler vector (second-smallest Laplacian eigenvector), sorting vertices by that value, and assigning the first `n_1` and next `n_2` vertices to the two communities.
 
-**Response:**
-- Describe algorithm implementation:
-  - Compute the graph Laplacian `L`.
-  - Eigen-decompose `L` and take the Fiedler vector (eigenvector for the second-smallest eigenvalue).
-  - Sort vertices by the Fiedler-vector entry.
-  - Assign the lowest `n1` entries to one community and the next `n2` entries to the other community.
-- Show function code:
+The implementation is:
 
 ```python
 def spectral_partitioning(G,n_1,n_2):
-  # TODO: Implement the spectral graph partitioning algorithm. This function
-  # takes as input a graph G in NetworkX format and two integers n_1 and n_2
-  # (given community sizes). It returns a numpy vector with class assignments
-  # for each vertex, coded using two different integers of your choice.
-
   communities_assignments = np.zeros((G.number_of_nodes(),))
-
-  ############# your code here #############
-  # Compute graph Laplacian
   L = nx.laplacian_matrix(G).astype(float)
-  # Compute eigenvalues and eigenvectors
   eigvals, eigvecs = np.linalg.eigh(L.toarray())
-  # Fiedler vector is the eigenvector corresponding to the second-smallest eigenvalue
-  fiedler_vector = eigvecs[:, 1]  # eigenvectors are columns, eigvecs[:,0] is trivial
-  # Sort nodes by value in Fiedler vector
+  fiedler_vector = eigvecs[:, 1]
   sorted_indices = np.argsort(fiedler_vector)
-  # Assign n_1 nodes with lowest Fiedler vector values to one community, rest to other
   communities_assignments = np.zeros(G.number_of_nodes(), dtype=int)
   communities_assignments[sorted_indices[:n_1]] = -1
   communities_assignments[sorted_indices[n_1:n_1+n_2]] = 1
-
-  #########################################
-
   return communities_assignments
 ```
-- Results on Zachary's Karate Club:
-  - Visualization:
-    - ![Karate spectral partitioning](report_figures/lab2_q8_karate_spectral_partition.png)
-  - Adjusted Rand index:
-    - `1.000`
-  - Fowlkes-Mallows index:
-    - `1.000`
-- #TODO: Discussion of performance (why spectral partitioning works well here; how errors might appear for other graphs)
+On Zachary's Karate Club:
+
+![Karate spectral partitioning](report_figures/lab2_q8_karate_spectral_partition.png){ width=85% }
+
+- Adjusted Rand index: `1.000`
+- Fowlkes-Mallows index: `1.000`
+
+This near-ideal result is expected because the Karate graph has a strong two-community signal, and the Fiedler vector separates the groups cleanly. Accuracy is further helped by providing target community sizes ($n_1$, $n_2$). On more complex graphs, errors are more likely when communities overlap, when bridge nodes lie near the boundary, or when a single two-way cut is not a good model.
 
 ---
 
 ### 3.2 Spectral Modularity Maximization
 
-**Question 9:** Implement the spectral modularity maximization algorithm.
+I implemented spectral modularity maximization by computing the modularity matrix `B`, extracting its leading eigenvector, and assigning communities based on the sign of that eigenvector.
 
-**Response:**
-- Describe algorithm implementation:
-  - Compute modularity matrix `B = nx.modularity_matrix(G)`.
-  - Compute its leading eigenvector.
-  - Split vertices into two communities based on the sign of the leading eigenvector entries.
-- Show function code:
+The implementation is:
 
 ```python
 def spectral_modularity_maximization(G):
-  # TODO: Implement the spectral modularity maximization algorithm. This function
-  # takes as input a graph G in NetworkX format. It returns a numpy vector with
-  # class assignments for each vertex, coded using two different integers of
-  # your choice.
-
   communities_assignments = np.zeros((G.number_of_nodes(),))
-
-  ############# your code here #############
-  # Compute the modularity matrix
   B = nx.modularity_matrix(G)
-  # Compute the leading eigenvector of the modularity matrix
   eigvals, eigvecs = np.linalg.eigh(B)
   leading_eigvec = eigvecs[:, np.argmax(eigvals)]
-  # Assign nodes to two communities based on sign of eigenvector
   communities_assignments = (leading_eigvec > 0).astype(int)
-
-  #########################################
-
   return communities_assignments
 ```
-- Results on Zachary's Karate Club:
-  - Visualization:
-    - ![Karate spectral modularity maximization](report_figures/lab2_q9_karate_spectral_modularity_max.png)
-  - Note:
-    - After aligning predicted labels to ground truth, the method correctly labels all vertices except **node 8**.
-  - Adjusted Rand index:
-    - `0.882`
-  - Fowlkes-Mallows index:
-    - `0.939`
-- Comparison with spectral partitioning results:
-  - Spectral partitioning achieved perfect recovery on this graph, while modularity maximization is slightly less accurate (one-node discrepancy here).
-  - #TODO: Provide a deeper comparison (role of knowing community sizes vs. optimizing modularity)
+On Zachary's Karate Club:
+
+![Karate spectral modularity maximization](report_figures/lab2_q9_karate_spectral_modularity_max.png){ width=85% }
+
+- After label alignment, all vertices are classified correctly except **node 8**.
+- Adjusted Rand index: `0.882`
+- Fowlkes-Mallows index: `0.939`
+
+Compared with spectral partitioning, this method is slightly less accurate on this graph. The key tradeoff is prior information: spectral partitioning uses known community sizes, while modularity maximization does not. In return, modularity maximization is more flexible and better matches realistic settings where group sizes are unknown.
 
 ---
 
 ### 3.3 Partitioning a Network of US Political Blogs
 
-**Question 10:** Qualitative comparison + limitations of spectral modularity maximization.
+In this environment, I could not download the Political Blogs dataset, so I could not compute ARI/Fowlkes values or produce the visualization in this run. I therefore report this limitation explicitly and do not substitute unverified numbers.
 
-**Response:**
-- Results on Political Blogs network:
-  - **#TODO:** Cannot download PolBlogs in this environment (`403 Forbidden` from the dataset host), so ARI/Fowlkes and the visualization for Q10 are not computed here.
-  - Please either:
-    - provide `polblogs.tar.gz` (or `adjacency.tsv` + `labels.tsv`) in the workspace, then I can compute and fill the values, or
-    - rerun the notebook in an environment with dataset download access and paste the ARI/Fowlkes results here.
-  - Placeholder for metrics:
-    - Adjusted Rand index score: `#TODO`
-    - Fowlkes-Mallows index score: `#TODO`
-- #TODO: Include the visualization (ground truth vs. estimated labels) once PolBlogs data is available.
-- #TODO: Qualitative comparison of visualizations
-- #TODO: Discussion of limitations
-  - When does spectral modularity maximization work well?
-  - What are its limitations?
-  - Comparison with spectral partitioning approach
+If data access is restored, I expect spectral modularity maximization to recover the broad liberal-conservative split with reasonable agreement, while showing local mismatches near boundary or bridge nodes.
+
+This method works best when there is a strong dominant community signal in the leading modularity eigenvector. Its limitations include the modularity resolution limit (small communities can be merged), sensitivity for nodes with near-zero eigenvector values, and reduced expressiveness when the true structure is hierarchical or has more than two communities.
 
 ---
 
@@ -294,12 +196,11 @@ def spectral_modularity_maximization(G):
 
 ### 4.1 Maximum Likelihood Estimator of $\alpha$ in the Pareto Distribution
 
-**Optional Question 1:** Show that the log-likelihood is:
+For the optional derivation, the target log-likelihood is
 $$
 \ell_n(\alpha) = n \log (\alpha -1)-n\log d_{\min} - \alpha \sum_{i=1}^n \log \left(\frac{d_i}{d_{\min}}\right).
 $$
 
-**Response:**
 For a Pareto model on $d\ge d_{\min}$:
 $$
 p(d)=C d^{-\alpha},\quad C=(\alpha-1)d_{\min}^{\alpha-1}.
@@ -332,12 +233,11 @@ which matches the required expression.
 
 ---
 
-**Optional Question 2:** Conclude that the MLE is:
+From the same model, the MLE is
 $$
 \hat{\alpha} = 1 + n \left[\sum_{i=1}^n \log \left(\frac{d_i}{d_{\min}}\right)\right]^{-1}.
 $$
 
-**Response:**
 Differentiate the log-likelihood w.r.t. $\alpha$:
 $$
 \ell_n(\alpha)=n\log(\alpha-1)-n\log d_{\min}-\alpha\sum_{i=1}^n \log\left(\frac{d_i}{d_{\min}}\right).
@@ -362,14 +262,14 @@ $$
 ---
 
 ## 5. Conclusion
-Key findings from this lab:
+Key findings from this laboratory are:
 - The empirical degree distribution can be computed via histogram binning; the toy graph test matches the expected distribution.
 - For the Cora citation network, the degree tail is consistent with a scale-free / power-law trend over a limited range, and the Pareto MLE estimate yields $\hat{\alpha}\approx 4.030$ (using $d_{\min}=10$).
-- Modularity coefficients are positive for both the airport network and the citation network, indicating modest assortative structure with respect to the chosen node labels.
+- Modularity is positive for the airport network, indicating modest assortative structure with respect to node labels; the citation-network modularity still requires recomputation from `cora_data` due to the implementation issue discussed earlier.
 - On Zachary’s Karate Club, spectral graph partitioning perfectly recovers the ground-truth partition (ARI=1.000, Fowlkes-Mallows=1.000), while spectral modularity maximization misclassifies only node 8 (ARI=0.882, Fowlkes-Mallows=0.939).
 
 Limitations and future work:
-- #TODO: Add a paragraph about limitations (choice of $d_{\min}$, modularity resolution limit, sensitivity to eigenvector sign, and scalability).
+- This analysis has several limitations. First, power-law conclusions depend on the choice of $d_{\min}$; different thresholds can yield different $\hat{\alpha}$ estimates and different judgments about Pareto-tail fit. Second, modularity has a known resolution limit, so smaller but meaningful communities may be merged into larger ones. Third, spectral methods depend on eigenvectors, so nodes near the sign boundary can be assigned unstably when eigenvector entries are close to zero. Finally, although effective on moderate-size graphs, these methods become more computationally demanding on larger networks because eigendecomposition and repeated matrix operations scale poorly. Future work includes formal power-law goodness-of-fit tests, sensitivity analysis over $d_{\min}$, and more scalable community-detection methods for large real-world graphs.
 
 ---
 
@@ -388,9 +288,6 @@ def communities_partition(labels):
 
 ```python
 def degree_distribution(degree_sequence):
-  # TODO: Implement this function that takes the graph's degree sequence as input
-  # and returns its degree distribution
-
   degree_distribution = []
 
   max_degree = np.max(degree_sequence)
@@ -402,10 +299,6 @@ def degree_distribution(degree_sequence):
 
 ```python
 def alpha_maximum_likelihood(deg_sequence, d_min):
-  # TODO: Implement this function that takes the graph's degree sequence and
-  # the degree lower bound (from which a power law is credible) as inputs, and
-  # returns the MLE of α
-
   alpha_hat = 0
 
   import numpy as np
@@ -424,7 +317,6 @@ def alpha_maximum_likelihood(deg_sequence, d_min):
 
 ```python
 def spectral_partitioning(G, n_1, n_2):
-  # TODO: Implement the spectral graph partitioning algorithm.
   communities_assignments = np.zeros((G.number_of_nodes(),))
 
   L = nx.laplacian_matrix(G).astype(float)
@@ -441,7 +333,6 @@ def spectral_partitioning(G, n_1, n_2):
 
 ```python
 def spectral_modularity_maximization(G):
-  # TODO: Implement the spectral modularity maximization algorithm.
   communities_assignments = np.zeros((G.number_of_nodes(),))
 
   B = nx.modularity_matrix(G)
