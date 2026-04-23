@@ -44,3 +44,6 @@ id_ed25519.*
 *.csr
 *.jwk
 *.jwt
+
+# Local evaluation artifacts
+eval/outputs/
