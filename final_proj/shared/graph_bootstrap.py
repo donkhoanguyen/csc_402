@@ -1,8 +1,8 @@
 """
-Bootstrap Neo4j graph with schema nodes from BIRD and Spider2-lite.
+Bootstrap Neo4j graph with schema nodes from BIRD and Spider2-snow.
 
-BIRD:   Uses train_tables.json (69 DBs) + introspects validation SQLite (11 DBs)
-Spider2-lite: Creates Database nodes only (schemas are cloud/BigQuery, not local)
+BIRD:        Uses train_tables.json (69 DBs) + introspects validation SQLite (11 DBs)
+Spider2-snow: Snowflake schemas ingested separately via snowflake_bootstrap.py
 
 Node labels:  (:Database), (:Table), (:Column)
 Edges:        (:Database)-[:HAS]->(:Table)-[:HAS]->(:Column)
@@ -208,17 +208,23 @@ def write_bird_schemas(driver, schemas, benchmark="BIRD"):
               f"{len(fk_pairs)} FKs")
 
 
-def write_spider2_lite_dbs(driver):
-    """Write Spider2-lite Database nodes (no schema available)."""
-    ds = load_dataset("xlangai/spider2-lite", split="train")
-    db_ids = sorted(set(ds["db"]))
-    benchmark = "Spider2-Lite"
+def write_spider2_snow_dbs(driver):
+    """Write Spider2-snow Database stubs (Snowflake schemas ingested separately)."""
+    import urllib.request, json
+    url = ("https://raw.githubusercontent.com/xlang-ai/spider2/main"
+           "/spider2-snow/spider2-snow.jsonl")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req) as r:
+        tasks = [json.loads(line)
+                 for line in r.read().decode().splitlines() if line.strip()]
+    db_ids = sorted({t["db_id"] for t in tasks})
+    benchmark = "Spider2"
 
     with driver.session() as session:
         for db_id in db_ids:
             session.execute_write(merge_database, db_id, benchmark)
 
-    print(f"  [Spider2-Lite] {len(db_ids)} database nodes written (no schema)")
+    print(f"  [Spider2-snow] {len(db_ids)} database stubs written")
 
 
 # ---------------------------------------------------------------------------
@@ -237,8 +243,8 @@ def main():
     val_schemas = load_bird_validation_schemas()
     write_bird_schemas(driver, val_schemas, benchmark="BIRD")
 
-    print("\n=== Spider2-Lite databases ===")
-    write_spider2_lite_dbs(driver)
+    print("\n=== Spider2-snow databases ===")
+    write_spider2_snow_dbs(driver)
 
     # Summary
     print("\n=== Neo4j node counts ===")

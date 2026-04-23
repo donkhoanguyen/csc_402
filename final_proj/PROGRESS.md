@@ -16,8 +16,8 @@
 |---|---|
 | `shared/neo4j_client.py` | Neo4j connection wrapper |
 | `shared/graph_bootstrap.py` | BIRD schema ingestion (SQLite + HuggingFace) |
-| `shared/snowflake_bootstrap.py` | Spider 2.0 Snowflake ingestion (resumable) |
-| `shared/analyze_external_knowledge.py` | Downloads + analyzes 69 Spider 2.0 knowledge docs |
+| `shared/snowflake_bootstrap.py` | Spider 2.0 Snowflake ingestion (resumable); task DB list from spider2-snow.jsonl |
+| `shared/analyze_external_knowledge.py` | Downloads + analyzes 69 Spider 2.0 knowledge docs (spider2-snow path) |
 | `shared/gen_graph_stats.py` | Schema complexity plots from Neo4j |
 | `gen_hin_diagram.py` | HIN schema diagram |
 | `graph_design.md` | Full graph schema spec (node types, edge types, tool API) |
@@ -25,7 +25,7 @@
 ### Graph State (April 11 2026, ingestion still running)
 - **107** Database nodes | **9,093** Table nodes | **56,939** Column nodes | **91** FK edges
 - BIRD: 16/80 DBs ingested
-- Spider 2.0: 91/114 task DBs ingested
+- Spider 2.0 (spider2-snow): 198 Database nodes ingested (152 unique Snowflake DBs, multi-schema DBs split into DB.SCHEMA nodes)
 
 ---
 
@@ -36,6 +36,7 @@
 3. **15% of Spider 2.0 tasks require external knowledge docs** (39/260 tasks). Concentrated in a few reused docs.
 4. **External knowledge docs are heavy-tailed in length** — 38 to 6,658 words (median 368). Can't inject all into prompts.
 5. **SOTA baseline**: Spider 2.0 best agents ~17-19% success rate. BIRD ~60% execution accuracy. These are our targets.
+6. **Switched from spider2-lite to spider2-snow** (full Snowflake slice): 547 tasks / 152 DBs vs 260/114 in lite. Only 35% cold DBs (54/152) vs 53% in lite. 27 DBs have 6+ tasks enabling richer exemplar retrieval.
 
 ---
 
@@ -70,8 +71,10 @@ In priority order:
 
 ## Spider 2.0 DB List
 
-Only 114 of the 155 Snowflake databases are actually used in Spider 2.0 tasks.
-Bootstrap filters against `xlangai/spider2-lite` HuggingFace dataset (`db` field, uppercased).
+152 unique DB ids in spider2-snow (547 tasks total). Bootstrap filters against
+`spider2-snow/spider2-snow.jsonl` on GitHub (`db_id` field, uppercased for matching).
+Multi-schema Snowflake DBs produce one Neo4j Database node per schema (DB.SCHEMA format),
+yielding 198 Database nodes in Neo4j for the 152 logical databases.
 
 ---
 

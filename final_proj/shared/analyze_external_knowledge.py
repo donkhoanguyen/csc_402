@@ -17,8 +17,8 @@ import matplotlib.gridspec as gridspec
 import networkx as nx
 import numpy as np
 
-BASE_URL = "https://raw.githubusercontent.com/xlang-ai/spider2/main/spider2-lite/resource/documents/"
-API_URL  = "https://api.github.com/repos/xlang-ai/spider2/contents/spider2-lite/resource/documents"
+BASE_URL = "https://raw.githubusercontent.com/xlang-ai/spider2/main/spider2-snow/resource/documents/"
+API_URL  = "https://api.github.com/repos/xlang-ai/spider2/contents/spider2-snow/resource/documents"
 OUT_DIR  = "external_knowledge_docs"
 
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -51,15 +51,20 @@ def download_docs(doc_list):
 
 
 # ---------------------------------------------------------------------------
-# 2. Load spider2-lite tasks
+# 2. Load spider2-snow tasks (Snowflake-only slice of full Spider 2.0)
 # ---------------------------------------------------------------------------
 
 def load_tasks():
-    from datasets import load_dataset
-    ds = load_dataset("xlangai/spider2-lite", split="train")
-    return [{"id": r["instance_id"], "db": r["db"],
-             "ek": r["external_knowledge"], "question": r["question"]}
-            for r in ds]
+    import urllib.request, json
+    url = ("https://raw.githubusercontent.com/xlang-ai/spider2/main"
+           "/spider2-snow/spider2-snow.jsonl")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req) as r:
+        rows = [json.loads(line)
+                for line in r.read().decode().splitlines() if line.strip()]
+    return [{"id": r["instance_id"], "db": r["db_id"],
+             "ek": r["external_knowledge"], "question": r["instruction"]}
+            for r in rows]
 
 
 # ---------------------------------------------------------------------------

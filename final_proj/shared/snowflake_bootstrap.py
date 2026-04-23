@@ -13,16 +13,24 @@ databases/schemas/tables/columns in INFORMATION_SCHEMA, and writes:
 
 Run from the shared/ directory:
   python snowflake_bootstrap.py
+
+Verification-only mode:
+  python snowflake_bootstrap.py --verify
 """
 
+import argparse
 import os
+import re
 import sys
 import time
 from datetime import datetime
 from dotenv import load_dotenv
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-import snowflake.connector
+try:
+    import snowflake.connector as snowflake_connector
+except ModuleNotFoundError:
+    snowflake_connector = None
 
 
 def log(msg):
@@ -48,8 +56,12 @@ def _load_private_key():
 
 
 def get_snowflake_conn():
+    if snowflake_connector is None:
+        raise RuntimeError(
+            "snowflake-connector-python is required for bootstrap mode."
+        )
     passcode = input("Microsoft Authenticator 6-digit code: ").strip()
-    return snowflake.connector.connect(
+    return snowflake_connector.connect(
         account=os.environ["SNOWFLAKE_ACCOUNT"],
         user=os.environ["SNOWFLAKE_USER"],
         password=os.environ["SNOWFLAKE_PASSWORD"],
@@ -79,6 +91,19 @@ def list_databases(cur):
 
 
 QUERY_TIMEOUT = 120  # seconds per Snowflake query before giving up
+SAMPLE_QUERY_TIMEOUT = 20
+SAMPLE_VALUES_MAX_DISTINCT = 10
+SAMPLE_VALUES_MAX_LEN = 200
+SAMPLE_SKIP_NAME_PATTERNS = ("_id", "id_", "uuid", "guid", "created", "updated")
+SAMPLE_SUPPORTED_TYPE_SNIPPETS = (
+    "CHAR",
+    "TEXT",
+    "STRING",
+    "BOOLEAN",
+    "DATE",
+    "TIME",
+    "TIMESTAMP",
+)
 
 
 def get_tables(cur, database):
@@ -140,6 +165,65 @@ def get_foreign_keys(cur, database):
         return []
 
 
+def quote_ident(identifier):
+    return f'"{identifier.replace(chr(34), chr(34) * 2)}"'
+
+
+def normalize_identifier(name):
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def should_collect_sample_values(col_name, data_type, is_view=False):
+    if is_view:
+        return False
+    if not data_type:
+        return False
+    if not any(token in data_type.upper() for token in SAMPLE_SUPPORTED_TYPE_SNIPPETS):
+        return False
+    lname = (col_name or "").lower()
+    if any(token in lname for token in SAMPLE_SKIP_NAME_PATTERNS):
+        return False
+    return True
+
+
+def fetch_sample_values(sf_cur, raw_db_name, schema_name, table_name, col_name):
+    """Return <= 10 distinct sample values for likely low-cardinality columns."""
+    fq_table = (
+        f"{quote_ident(raw_db_name)}.{quote_ident(schema_name)}.{quote_ident(table_name)}"
+    )
+    q_col = quote_ident(col_name)
+    try:
+        sf_cur.execute(
+            f"""
+            SELECT DISTINCT {q_col} AS v
+            FROM {fq_table}
+            WHERE {q_col} IS NOT NULL
+            ORDER BY 1
+            LIMIT {SAMPLE_VALUES_MAX_DISTINCT + 1}
+            """,
+            timeout=SAMPLE_QUERY_TIMEOUT,
+        )
+        rows = sf_cur.fetchall()
+    except Exception as e:
+        print(f"    [INFO] Sample values skipped for {schema_name}.{table_name}.{col_name}: {e}")
+        return None
+
+    if not rows or len(rows) > SAMPLE_VALUES_MAX_DISTINCT:
+        return None
+
+    values = []
+    for row in rows:
+        value = row[0]
+        if value is None:
+            continue
+        sval = str(value)
+        if len(sval) > SAMPLE_VALUES_MAX_LEN:
+            sval = sval[:SAMPLE_VALUES_MAX_LEN]
+        values.append(sval)
+
+    return values or None
+
+
 # ---------------------------------------------------------------------------
 # Neo4j write helpers
 # ---------------------------------------------------------------------------
@@ -186,9 +270,57 @@ def write_fk(session, db_id, src_table, src_col, dst_table, dst_col):
     session.run(
         "MATCH (src:Column {db_id: $db_id, table_name: $st, name: $sc, benchmark: 'Spider2'}) "
         "MATCH (dst:Column {db_id: $db_id, table_name: $dt, name: $dc, benchmark: 'Spider2'}) "
-        "MERGE (src)-[:FK {enforced: true}]->(dst)",
+        "MERGE (src)-[r:FK]->(dst) "
+        "SET r.enforced = true "
+        "REMOVE r.inferred_by",
         db_id=db_id, st=src_table, sc=src_col, dt=dst_table, dc=dst_col,
     )
+
+
+def write_inferred_fk(session, db_id, src_table, src_col, dst_table, dst_col):
+    result = session.run(
+        "MATCH (src:Column {db_id: $db_id, table_name: $st, name: $sc, benchmark: 'Spider2'}) "
+        "MATCH (dst:Column {db_id: $db_id, table_name: $dt, name: $dc, benchmark: 'Spider2'}) "
+        "WHERE NOT (src)-[:FK]->(dst) "
+        "MERGE (src)-[r:FK]->(dst) "
+        "SET r.enforced = false, r.inferred_by = 'name_match' "
+        "RETURN count(r) AS written",
+        db_id=db_id, st=src_table, sc=src_col, dt=dst_table, dc=dst_col,
+    )
+    return result.single()["written"]
+
+
+def write_sample_values(session, db_id, table_name, col_name, values):
+    session.run(
+        "MATCH (c:Column {db_id: $db_id, table_name: $tname, name: $cname, benchmark: 'Spider2'}) "
+        "SET c.sample_values = $values",
+        db_id=db_id, tname=table_name, cname=col_name, values=values,
+    )
+
+
+def infer_fk_candidates(schema_cols):
+    """Infer deterministic FK candidates from normalized exact column-name match."""
+    by_normalized_name = {}
+    for schema_name, table_name, col_name, *_ in schema_cols:
+        key = normalize_identifier(col_name)
+        if not key:
+            continue
+        by_normalized_name.setdefault(key, []).append((table_name, col_name))
+
+    candidates = set()
+    for matches in by_normalized_name.values():
+        if len(matches) < 2:
+            continue
+        sorted_matches = sorted(matches)
+        for i in range(len(sorted_matches)):
+            for j in range(i + 1, len(sorted_matches)):
+                left = sorted_matches[i]
+                right = sorted_matches[j]
+                if left[0] == right[0]:
+                    # Skip self-table links; these are usually not meaningful FK relations.
+                    continue
+                candidates.add((left[0], left[1], right[0], right[1]))
+    return sorted(candidates)
 
 
 # ---------------------------------------------------------------------------
@@ -205,10 +337,11 @@ def ingest_database(sf_cur, neo4j_driver, raw_db_name, schema_filter=None):
     tables = get_tables(sf_cur, raw_db_name)
     columns = get_columns(sf_cur, raw_db_name)
     fks = get_foreign_keys(sf_cur, raw_db_name)
+    totals = {"enforced_fk": 0, "inferred_fk": 0, "sample_columns": 0}
 
     if not tables:
         print(f"  [SKIP] {raw_db_name} — no tables found")
-        return
+        return totals
 
     # Group by schema
     schemas = sorted(set(row[0] for row in tables))
@@ -224,6 +357,8 @@ def ingest_database(sf_cur, neo4j_driver, raw_db_name, schema_filter=None):
 
         schema_tables = [(r[1], r[2], r[3]) for r in tables if r[0] == schema]
         schema_cols   = [r for r in columns if r[0] == schema]
+        inferred_candidates = infer_fk_candidates(schema_cols)
+        table_type_by_name = {tname: ttype for tname, ttype, _ in schema_tables}
 
         with neo4j_driver.session() as s:
             write_database(s, db_id)
@@ -234,9 +369,23 @@ def ingest_database(sf_cur, neo4j_driver, raw_db_name, schema_filter=None):
             for _, tname, cname, dtype, nullable, cdesc, _ in schema_cols:
                 write_column(s, db_id, tname, cname, dtype, nullable, cdesc)
                 col_lookup[(schema, tname, cname)] = db_id
+                if should_collect_sample_values(
+                    cname, dtype, is_view=(table_type_by_name.get(tname, "").upper() == "VIEW")
+                ):
+                    sample_values = fetch_sample_values(sf_cur, raw_db_name, schema, tname, cname)
+                    if sample_values:
+                        write_sample_values(s, db_id, tname, cname, sample_values)
+                        totals["sample_columns"] += 1
+
+            inferred_written = 0
+            for src_t, src_c, dst_t, dst_c in inferred_candidates:
+                inferred_written += write_inferred_fk(s, db_id, src_t, src_c, dst_t, dst_c)
+            totals["inferred_fk"] += inferred_written
 
         print(f"    [{db_id}] {len(schema_tables)} tables, "
-              f"{len(schema_cols)} columns")
+              f"{len(schema_cols)} columns, "
+              f"{inferred_written} inferred FK edges, "
+              f"{totals['sample_columns']} columns with sample values (running total)")
 
     # Foreign keys
     fk_written = 0
@@ -248,8 +397,33 @@ def ingest_database(sf_cur, neo4j_driver, raw_db_name, schema_filter=None):
                 write_fk(s, src_db, src_t, src_c, dst_t, dst_c)
                 fk_written += 1
 
+    totals["enforced_fk"] = fk_written
     if fk_written:
-        print(f"    FK edges written: {fk_written}")
+        print(f"    Enforced FK edges written: {fk_written}")
+    return totals
+
+
+def print_enrichment_counts(neo4j_driver):
+    """Print enrichment counts from Neo4j for verification."""
+    with neo4j_driver.session() as s:
+        enforced_fk = s.run(
+            "MATCH (:Column {benchmark:'Spider2'})-[r:FK {enforced:true}]->(:Column {benchmark:'Spider2'}) "
+            "RETURN count(r) AS c"
+        ).single()["c"]
+        inferred_fk = s.run(
+            "MATCH (:Column {benchmark:'Spider2'})-[r:FK {enforced:false, inferred_by:'name_match'}]->(:Column {benchmark:'Spider2'}) "
+            "RETURN count(r) AS c"
+        ).single()["c"]
+        sample_columns = s.run(
+            "MATCH (c:Column {benchmark:'Spider2'}) "
+            "WHERE c.sample_values IS NOT NULL AND size(c.sample_values) > 0 "
+            "RETURN count(c) AS c"
+        ).single()["c"]
+
+    print("\n=== Snowflake enrichment verification ===")
+    print(f"  Enforced FK edges written: {enforced_fk:,}")
+    print(f"  Inferred FK edges written: {inferred_fk:,}")
+    print(f"  Columns with sample values: {sample_columns:,}")
 
 
 # ---------------------------------------------------------------------------
@@ -260,25 +434,48 @@ SKIP_SYSTEM_DBS = {"SNOWFLAKE", "SNOWFLAKE_SAMPLE_DATA"}
 
 
 def get_spider2_task_dbs():
-    """Return set of uppercase DB names actually referenced by Spider 2.0 tasks."""
-    from datasets import load_dataset
-    ds = load_dataset("xlangai/spider2-lite", split="train")
-    return {db.upper() for db in set(ds["db"])}
+    """Return set of uppercase DB names referenced by Spider 2.0 Snowflake tasks.
+
+    Source: spider2-snow.jsonl (547 tasks, Snowflake-only slice of full Spider 2.0).
+    Field: db_id (already uppercase in the file, but we upper() for safety).
+    """
+    import urllib.request
+    import json
+    url = ("https://raw.githubusercontent.com/xlang-ai/spider2/main"
+           "/spider2-snow/spider2-snow.jsonl")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req) as r:
+        tasks = [json.loads(line)
+                 for line in r.read().decode().splitlines() if line.strip()]
+    return {t["db_id"].upper() for t in tasks}
 
 
 def main():
     from neo4j_client import get_driver, close as neo4j_close
+    parser = argparse.ArgumentParser(
+        description="Bootstrap Spider2 Snowflake schema graph and enrichment data."
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Only print enrichment verification counts from Neo4j and exit.",
+    )
+    args = parser.parse_args()
+
+    print("Connecting to Neo4j...")
+    neo4j_driver = get_driver()
+    if args.verify:
+        print_enrichment_counts(neo4j_driver)
+        neo4j_close()
+        return
 
     print("Connecting to Snowflake...")
     sf_conn = get_snowflake_conn()
     sf_cur = sf_conn.cursor()
 
-    print("Connecting to Neo4j...")
-    neo4j_driver = get_driver()
-
-    print("\nLoading Spider 2.0 task DB list...")
+    print("\nLoading Spider 2.0 Snowflake task DB list (spider2-snow.jsonl)...")
     task_dbs = get_spider2_task_dbs()
-    print(f"Spider 2.0 tasks reference {len(task_dbs)} unique databases\n")
+    print(f"Spider 2.0 Snowflake tasks reference {len(task_dbs)} unique databases\n")
 
     print("Discovering Snowflake databases...")
     all_dbs = list_databases(sf_cur)
@@ -298,6 +495,9 @@ def main():
     if done:
         print(f"Resuming — skipping {len(done)} already-ingested databases\n")
 
+    total_enforced_fk = 0
+    total_inferred_fk = 0
+    total_sample_columns = 0
     for db_name in spider_dbs:
         # Simple check: skip if a db_id matching this name already exists
         already_done = any(d == db_name or d.startswith(f"{db_name}.") for d in done)
@@ -306,20 +506,33 @@ def main():
             continue
         log(f"Ingesting: {db_name} ...")
         try:
-            ingest_database(sf_cur, neo4j_driver, db_name)
-        except snowflake.connector.errors.DatabaseError as e:
-            if "Session no longer exists" in str(e) or "390114" in str(e) or "390111" in str(e):
+            counts = ingest_database(sf_cur, neo4j_driver, db_name)
+            total_enforced_fk += counts["enforced_fk"]
+            total_inferred_fk += counts["inferred_fk"]
+            total_sample_columns += counts["sample_columns"]
+        except Exception as e:
+            is_session_expiry = (
+                snowflake_connector is not None
+                and isinstance(e, snowflake_connector.errors.DatabaseError)
+                and (
+                    "Session no longer exists" in str(e)
+                    or "390114" in str(e)
+                    or "390111" in str(e)
+                )
+            )
+            if is_session_expiry:
                 log(f"Session expired during {db_name} — reconnecting...")
                 sf_conn, sf_cur = reconnect()
                 log(f"Reconnected. Retrying {db_name} ...")
                 try:
-                    ingest_database(sf_cur, neo4j_driver, db_name)
+                    counts = ingest_database(sf_cur, neo4j_driver, db_name)
+                    total_enforced_fk += counts["enforced_fk"]
+                    total_inferred_fk += counts["inferred_fk"]
+                    total_sample_columns += counts["sample_columns"]
                 except Exception as e2:
                     log(f"  [ERROR] {db_name} after reconnect: {e2}")
             else:
                 log(f"  [ERROR] {db_name}: {e}")
-        except Exception as e:
-            log(f"  [ERROR] {db_name}: {e}")
 
     # Summary
     print("\n=== Neo4j node counts after Snowflake bootstrap ===")
@@ -333,6 +546,10 @@ def main():
             "MATCH (n:Column {benchmark:'Spider2'})-[r:FK]->() RETURN count(r) AS c"
         ).single()["c"]
         print(f"  Spider2 FK edges: {fk_count:,}")
+    print(f"  Enforced FK edges written this run: {total_enforced_fk:,}")
+    print(f"  Inferred FK edges written this run: {total_inferred_fk:,}")
+    print(f"  Columns with sample values this run: {total_sample_columns:,}")
+    print_enrichment_counts(neo4j_driver)
 
     sf_cur.close()
     sf_conn.close()

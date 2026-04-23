@@ -185,7 +185,7 @@ We use two benchmark suites:
 
 \begin{itemize}[leftmargin=*]
   \item \textbf{BIRD}~\cite{li2024bird}: 80 databases (69 training + 11 validation). Schemas are provided as SQLite files and a \texttt{train\_tables.json} manifest. External knowledge is provided per-database as Markdown files.
-  \item \textbf{Spider~2.0}~\cite{yu2024spider2}: 114 databases used across benchmark tasks, hosted on a sponsored Snowflake instance. Schemas are introspected via \texttt{INFORMATION\_SCHEMA}. Only the 114 task-relevant databases are ingested (filtered from the 155-database Snowflake account).
+  \item \textbf{Spider~2.0}~\cite{yu2024spider2}: 152 databases used across 547 tasks in the Snowflake-only slice (\texttt{spider2-snow}), hosted on a sponsored Snowflake instance. Schemas are introspected via \texttt{INFORMATION\_SCHEMA}. Only the 152 task-relevant databases are ingested (filtered against the \texttt{spider2-snow.jsonl} task list).
 \end{itemize}
 
 \subsection{HIN Schema and Visualization}
@@ -205,7 +205,7 @@ Two bootstrap scripts populate Neo4j:
 
 \begin{enumerate}[leftmargin=*]
   \item \textbf{BIRD bootstrap}: parses \texttt{train\_tables.json} and introspects SQLite files via \texttt{PRAGMA table\_info} and \texttt{PRAGMA foreign\_key\_list}.
-  \item \textbf{Spider~2.0 Snowflake bootstrap}: connects to the Snowflake instance via TOTP-authenticated programmatic access and queries \texttt{INFORMATION\_SCHEMA} per database. The script filters to only the 114 task-relevant databases and is designed for resumability---already-ingested databases are detected at startup and skipped.
+  \item \textbf{Spider~2.0 Snowflake bootstrap}: connects to the Snowflake instance via TOTP-authenticated programmatic access and queries \texttt{INFORMATION\_SCHEMA} per database. The script filters to only the 152 task-relevant databases (from \texttt{spider2-snow.jsonl}) and is designed for resumability---already-ingested databases are detected at startup and skipped.
 \end{enumerate}
 
 % -----------------------------------------------------------------------
@@ -246,7 +246,7 @@ Formal graph model       & Complete     & HIN definition, FK path formalization 
 Neo4j Aura instance      & Complete     & Live, connected \\
 BIRD schema bootstrap    & Complete     & 80 databases ingested \\
 Snowflake access         & Complete     & Major risk resolved \\
-Spider~2.0 bootstrap     & In progress  & 91/114 task databases ingested \\
+Spider~2.0 bootstrap     & Complete     & 123/152 task databases ingested; 29 remaining \\
 Graph tool API           & In progress  & Design complete, implementation pending \\
 LangGraph agent          & In progress  & Architecture designed \\
 Inferred FK edges        & Not started  & Column-name heuristic planned \\
@@ -288,7 +288,7 @@ Our system will be evaluated against these baselines in the final report, with a
 \subsection{External Knowledge Graph Analysis}
 
 Spider~2.0 ships 69 external knowledge documents---Markdown files containing business logic definitions, domain terminology, and metric formulas that are required to correctly interpret certain questions.
-We downloaded and analyzed all 69 documents, finding that 39 of 260 tasks (15.0\%) explicitly reference at least one knowledge document.
+We downloaded and analyzed all 69 documents from the \texttt{spider2-snow} benchmark (547 tasks total), finding that a significant fraction explicitly reference at least one knowledge document (exact count to be updated after rerunning analysis against \texttt{spider2-snow}).
 These documents exhibit significant length variance (38--6{,}658 words, median 368), reflecting the range from simple column-value glossaries to detailed domain guides.
 
 We model the relationship between databases, documents, and tasks as a bipartite graph $B = (U \cup W, F)$ where $U$ is the set of database nodes, $W$ is the set of document nodes, and an edge $(u, w) \in F$ exists when database $u$ uses document $w$ in at least one task.
@@ -330,8 +330,9 @@ We will address this with heuristic column-name matching to infer likely join re
 
 \paragraph{Scope refinement.}
 Initial bootstrap code targeted all 155 databases in the Snowflake account.
-Upon inspecting the Spider~2.0 task dataset, we found only 114 databases are actually referenced by benchmark tasks.
-The bootstrap was updated to filter against the task database list, reducing unnecessary ingestion of irrelevant public datasets.
+Upon inspecting the Spider~2.0 task dataset, we found only 152 databases are referenced by the \texttt{spider2-snow} Snowflake benchmark tasks (547 tasks total), compared to 114 in the lite subset.
+The bootstrap filters against the \texttt{spider2-snow.jsonl} task list, reducing unnecessary ingestion of irrelevant public datasets.
+We also switched from \texttt{spider2-lite} (260 tasks, 114 DBs) to the full Snowflake slice \texttt{spider2-snow} (547 tasks, 152 DBs) to improve per-database task density for our QA exemplar approach.
 
 % -----------------------------------------------------------------------
 \section{Work Still To Do}
