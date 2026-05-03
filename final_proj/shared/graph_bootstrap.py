@@ -9,15 +9,18 @@ Edges:        (:Database)-[:HAS]->(:Table)-[:HAS]->(:Column)
               (:Column)-[:FK]->(:Column)
 """
 
+import argparse
 import json
 import sqlite3
 import tempfile
 import os
+from pathlib import Path
 
 from huggingface_hub import hf_hub_download
 from datasets import load_dataset
 
 from neo4j_client import get_driver, close
+from ontology_migration import run as run_ontology_migration
 
 BIRD_REPO = "prem-research/birdbench"
 
@@ -232,6 +235,24 @@ def write_spider2_snow_dbs(driver):
 # ---------------------------------------------------------------------------
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Bootstrap BIRD/Spider2 schemas and optionally run ontology migration."
+    )
+    parser.add_argument(
+        "--enable-ontology-migration",
+        action="store_true",
+        help="Run ontology migration after schema bootstrap (disabled by default for safety).",
+    )
+    parser.add_argument(
+        "--docs-dir",
+        default=str(os.path.join(os.path.dirname(__file__), "..", "external_knowledge_docs")),
+        help="Path to external knowledge markdown docs for ontology ingestion.",
+    )
+    parser.add_argument("--ontology-neo4j-uri", default="", help="Target Neo4j URI for ontology migration.")
+    parser.add_argument("--ontology-neo4j-username", default="", help="Target Neo4j username for ontology migration.")
+    parser.add_argument("--ontology-neo4j-password", default="", help="Target Neo4j password for ontology migration.")
+    args = parser.parse_args()
+
     driver = get_driver()
 
     print("\n=== BIRD train schemas ===")
@@ -256,6 +277,17 @@ def main():
             "MATCH ()-[r:FK]->() RETURN count(r) AS c"
         ).single()["c"]
         print(f"  FK relationships: {fk_count:,}")
+
+    if args.enable_ontology_migration:
+        print("\n=== Ontology migration ===")
+        run_ontology_migration(
+            docs_dir=Path(os.path.abspath(args.docs_dir)),
+            neo4j_uri=args.ontology_neo4j_uri,
+            neo4j_username=args.ontology_neo4j_username,
+            neo4j_password=args.ontology_neo4j_password,
+        )
+    else:
+        print("\nSkipping ontology migration by default. Use --enable-ontology-migration to run it.")
 
     close()
     print("\nBootstrap complete.")

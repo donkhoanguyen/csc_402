@@ -11,10 +11,13 @@ import json
 from graph_tools import (
     find_join_path,
     get_columns,
-    get_dbt_lineage,
     get_metric,
+    get_metric_constraints,
+    get_spreading_activation_context,
     get_tables,
     search_columns,
+    upsert_failure_mode,
+    upsert_query_pattern,
 )
 from neo4j_client import close
 
@@ -38,7 +41,7 @@ def main():
     parser.add_argument("--table-name", default="", help="Table name for get_columns")
     parser.add_argument("--keyword", default="id", help="Keyword for column search")
     parser.add_argument("--metric-name", default="revenue", help="Metric name lookup")
-    parser.add_argument("--model-name", default="fct_orders", help="dbt model name lookup")
+    parser.add_argument("--pattern-id", default="smoke_pattern", help="QueryPattern id for memory-loop test")
     args = parser.parse_args()
 
     try:
@@ -65,7 +68,39 @@ def main():
         _safe_call("find_join_path", find_join_path, args.db_id, join_table_a, join_table_b)
 
         _safe_call("get_metric", get_metric, args.db_id, args.metric_name)
-        _safe_call("get_dbt_lineage", get_dbt_lineage, args.db_id, args.model_name)
+        _safe_call("get_metric_constraints", get_metric_constraints, args.db_id, args.metric_name)
+        _safe_call(
+            "get_spreading_activation_context",
+            get_spreading_activation_context,
+            args.db_id,
+            ["revenue", "retention"],
+            ["finance", "product"],
+            10,
+        )
+        _safe_call(
+            "upsert_failure_mode",
+            upsert_failure_mode,
+            args.db_id,
+            "fanout_join",
+            "fanout caused duplicate aggregation",
+            "join_cardinality_is_many_to_many",
+            "choose SAFE_JOIN path with lower risk score",
+            [join_table_a] if join_table_a else [],
+            [args.metric_name],
+        )
+        _safe_call(
+            "upsert_query_pattern",
+            upsert_query_pattern,
+            args.db_id,
+            args.pattern_id,
+            "trend",
+            "monthly revenue trend for active users",
+            [join_table_a] if join_table_a else [],
+            [args.metric_name],
+            True,
+            1200,
+            "fanout_join",
+        )
     finally:
         close()
 
